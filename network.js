@@ -32,7 +32,7 @@ const Network = (() => {
   let countdownStartTime = 0;
   const COUNTDOWN_DURATION_MS = 4000;
 
-  let myName = "Jogador";
+  let myName = "Eu";
   let myRequestedColor = "azul";
 
   let tickInterval = null;
@@ -117,7 +117,7 @@ const Network = (() => {
   }
 
   function setPlayerName(name) {
-    myName = (name && name.trim()) ? name.trim().slice(0, 15) : "Jogador";
+    myName = sanitizePlayerName(name || "");
   }
 
   function startWorkerInterval(ms, onTick) {
@@ -392,7 +392,7 @@ const Network = (() => {
       case "INPUT":
         if (p) {
           p.input = { dx: msg.dx, dy: msg.dy, sprint: msg.sprint };
-          if (msg.name) p.name = msg.name.slice(0, 15);
+          if (msg.name) p.name = sanitizePlayerName(msg.name);
         }
         break;
       case "LIGHT_TOGGLE":
@@ -467,7 +467,7 @@ const Network = (() => {
   }
 
   function addPlayer(peerId, conn, name, requestedColor) {
-    const pName = (name && name.trim()) ? name.trim().slice(0, 15) : "Jogador";
+    const pName = sanitizePlayerName(name || "")
     const existing = players.get(peerId);
     
     if (existing) {
@@ -516,7 +516,7 @@ const Network = (() => {
     const list = [...players.entries()].map(([id, p]) => ({
       id,
       color: p.color,
-      name: p.name || "Jogador",
+      name: p.name || "Eu",
       isHost: id === myPeerId,
     }));
     players.forEach((p) => {
@@ -808,7 +808,7 @@ function broadcastGameState(timeLeft, countdownText, pickedItems = []) {
     x: p.x,
     y: p.y,
     color: p.color,
-    name: p.name || "Jogador",
+    name: p.name || "Eu",
     infected: p.infected,
     transforming: !!p.transforming,
     room: p.room,

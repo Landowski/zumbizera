@@ -33,7 +33,7 @@ const restartBtn = document.getElementById("restartBtn");
 const leaveBtn = document.getElementById("leaveBtn");
 const nameInput = document.getElementById("name");
 const characterOptions = document.querySelectorAll(".player-option");
-const savedName = localStorage.getItem("playerName") || "Jogador";
+const nameBlockedIcon = document.getElementById("nameBlockedIcon");
 const DEBUG_COLLIDERS = false;
 const MIN_PLAYERS = 2;
 const prevInfected = new Map();
@@ -42,12 +42,18 @@ const imgEnergetico = new Image();
 imgEnergetico.src = "img/item-energetico.png";
 const imgBanana = new Image();
 imgBanana.src = "img/item-banana.png";
+let savedName = localStorage.getItem("playerName") || "Eu";
 let currentRoomItems = [];
 let joined = false;
 let latestState = [];
 let latestRoomLights = {};
 let selectedDurationMin = 2;
 let countdownSoundPlayed = false;
+
+if (containsBlockedWord(savedName)) {
+  savedName = "Eu";
+  localStorage.setItem("playerName", savedName);
+}
 
 characterOptions.forEach((opt) => {
   opt.addEventListener("click", () => {
@@ -65,6 +71,7 @@ nameInput.addEventListener("input", (e) => {
   const val = e.target.value.slice(0, 15);
   localStorage.setItem("playerName", val);
   Network.setPlayerName(val);
+  nameBlockedIcon.classList.toggle("hidden", !containsBlockedWord(val));
 });
 
 createRoomBtn.addEventListener("click", () => {
@@ -397,7 +404,7 @@ function drawPlayerSprite(p, isHidden = false) {
 
     const nameX = p.x + Network.PLAYER_W / 2;
     const nameY = drawY - 6;
-    const nameText = p.name ? p.name : "Jogador";
+    const nameText = p.name ? p.name : "Eu";
 
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 4;
@@ -754,7 +761,7 @@ Network.on("onGameState", ({ players, timeLeft, roomLights, countdownText, items
     const was = prevInfected.get(p.id);
     if (was === false && p.infected === true) {
       
-      const playerName = p.name || "Jogador";
+      const playerName = p.name || "Eu";
       const message = `${playerName} virou zumbi!`;
 
       if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Toast) {

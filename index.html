@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Zumbizeira</title>
+<title>Zumbizera</title>
 <link rel="stylesheet" href="game.css">
 <link rel="manifest" href="manifest.json" />
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="icon" type="image/png" href="img/icone-192.png">
+<link rel="icon" href="img/icone.png" type="image/png">
 </head>
 <body>
 
@@ -53,7 +53,10 @@
             <img src="img/j-5.png"/>
           </div>
         </div>
-        <input type="text" id="name" maxlength="15" autocomplete="off">
+        <div class="display: flex; gap: 10px;">
+          <input type="text" id="name" maxlength="15" autocomplete="off">
+          <span id="nameBlockedIcon" class="hidden">🛇</span>
+        </div>
       </div>
 
       <div class="status">
@@ -116,6 +119,7 @@
   <script src="rooms-data.js"></script>
   <script src="sprites-data.js"></script>
   <script src="audio.js"></script>
+  <script src="name-filter.js"></script>
   <script src="network.js"></script>
   <script src="game.js"></script>
   
