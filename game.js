@@ -635,7 +635,7 @@ function drawToast() {
 Network.on("onRoomCreated", (code) => {
   roomSelectEl.classList.add("hidden");
   lobbyMainEl.classList.remove("hidden");
-  roomCodeDisplay.textContent = `Código da sala: ${code}`;
+  roomCodeDisplay.textContent = `Código: ${code}`;
 });
 
 Network.on("onRoomNotFound", () => {
@@ -671,7 +671,7 @@ Network.on("onStateSync", (players) => {
   joined = true;
   roomSelectEl.classList.add("hidden");
   lobbyMainEl.classList.remove("hidden");
-  roomCodeDisplay.textContent = `Código da sala: ${Network.roomCode}`;
+  roomCodeDisplay.textContent = `Código: ${Network.roomCode}`;
   lobbyLeaveBtn.classList.remove("hidden");
   renderPlayerList(players);
 
