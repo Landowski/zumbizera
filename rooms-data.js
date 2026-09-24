@@ -136,7 +136,6 @@ const ROOMS = {
       { x: 403, y: 101, w: 4, h: 30 },
       { x: 323, y: 101, w: 4, h: 30 },
       { x: 0, y: 224, w: 70, h: 544 },
-      { x: 70, y: 224, w: 70, h: 281 },
     ],
     diagonals: [],
     exits: [
@@ -145,7 +144,7 @@ const ROOMS = {
       { x: 1370, y: 0, w: 6, h: ROOM_H, toRoom: "rua", spawnX: 30, spawnY: 335 },
     ],
     staticFront: [
-      { src: "img/rua2-cacamba.png", x: 3, y: 158, w: 149, h: 64 },
+      { src: "img/rua2-cacamba.png", x: 3, y: 158, w: 71, h: 64 },
       { src: "img/rua2-pula.png", x: 276, y: 14, w: 177, h: 89 },
       { src: "img/rua2-arbustos.png", x: 187, y: 660, w: 301, h: 108 },
       { src: "img/rua2-arbusto.png", x: 1016, y: 661, w: 131, h: 108 },

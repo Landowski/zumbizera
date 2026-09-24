@@ -1,11 +1,9 @@
 :root {
-  --bg: #10130f;
-  --panel: #232a21;
+  --bg: #232a21;
   --text: #e8ead4;
   --muted: #7c8570;
   --accent: #6fbf3f;
-  --danger: #c93838;
-  --shadow: #3b683d;
+  --quit: #c93838;
 }
 
 @font-face{
@@ -65,13 +63,9 @@ input {
 
 #lobby {
   width: 90%;
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 40px;
 }
 
 #lobbyMain {
@@ -106,7 +100,7 @@ input {
 .player-option {
   position: relative;
   cursor: pointer;
-  opacity: 0.55;
+  opacity: 0.65;
   transition: opacity 0.2s, transform 0.2s;
 }
 
@@ -178,21 +172,46 @@ input {
 }
 
 button {
-  width: 100%;
-  max-width: 250px;
-  padding: 12px;
-  border: none;
-  font-size: 1rem;
-  font-family: "Press Start 2P", "Courier New", monospace;
-  border-radius: 5px;
+  width: auto;
+  height: 40px;
+  color: #fff;
+  padding: 0 16px;
+  font-size: 14px;
+  font-family: "Press Start 2P", system-ui;
+  border: 0;
+  cursor: pointer;
   letter-spacing: 1px;
+  text-shadow: 2px 2px rgba(0,0,0,.35);
+  clip-path: polygon(
+    5px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px),
+    0 4px,
+    4px 4px
+  );
+  box-shadow:
+  inset 0 4px 0 #ffffff26,
+  inset 0 -4px 0 #00000036,
+  inset 4px 0 0 #00000036,
+  inset -4px 0 0 #ffffff26;
 }
 
-#startBtn, #restartBtn, #createRoomBtn, #joinRoomBtn {
-  background: var(--accent);
-  color: #fff;
-  text-shadow: 2px 2px var(--shadow);
-  box-shadow: 0px 5px var(--shadow), inset 0px 5px #ffffff36;
+button:active {
+  transform: translateY(5px);
+}
+
+button:disabled {
+  background: #4b5744 !important;
+  color: var(--muted) !important;
+  text-shadow: none !important;
+  box-shadow: 0px 5px #20271c, inset 0px 5px #ffffff16 !important;
 }
 
 .menuBtns {
@@ -202,19 +221,40 @@ button {
   justify-content: center;
 }
 
-#lobbyLeaveBtn, #leaveBtn {
-  background: var(--danger);
-  color: #fff;
-  text-shadow: 2px 2px #7e2323;
-  box-shadow: 0px 5px #7e2323, inset 0px 5px #ffffff36;
-  width: 50%;
+#startBtn, #createPrivateRoomBtn, #createPublicRoomBtn, #restartBtn, .public-room-join {
+  background: var(--accent);
 }
 
-button:disabled {
-  background: #4b5744 !important;
-  color: var(--muted) !important;
-  text-shadow: none !important;
-  box-shadow: 0px 5px #20271c, inset 0px 5px #ffffff16 !important;
+#lobbyLeaveBtn, #leaveBtn {
+  background: var(--quit);
+}
+
+#publicRoomsList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 80%;
+  padding: 10px;
+}
+
+#publicRoomsList::-webkit-scrollbar {
+    width: 6px;
+    height: 10px;
+}
+
+#publicRoomsList::-webkit-scrollbar-thumb {
+    border-radius: 360px;
+    background-color: #4b5744;
+}
+
+#publicRoomsList::-webkit-scrollbar-thumb:hover {
+    background-color: #63725a;
+}
+
+#publicRoomsList::-webkit-scrollbar-track {
+    background-color: transparent !important
 }
 
 #game {
@@ -283,22 +323,26 @@ canvas {
   align-items: center;
   justify-content: center;
   padding: 0 !important;
-  position: absolute;
+  position: absolute !important;
   right: 110px;
-  width: 50px;
-  height: 50px;
-  border-radius: 360px;
-  background-color: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  width: 50px !important;
+  height: 50px !important;
+  border-radius: 360px !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
   color: #fff;
-  z-index: 5;
-  outline: none;
-  touch-action: none;
-  overflow: hidden;
+  z-index: 5 !important;
+  outline: none !important;
+  touch-action: none !important;
+  overflow: hidden !important;
+  letter-spacing: 0px !important;
+  text-shadow: none !important;
+  clip-path: none !important;
+  box-shadow: none !important;
 }
 
 #sprintBtn img, #actionBtn img {
-    opacity: 0.4;
+  opacity: 0.4;
 }
 
 #sprintBtn.on-cooldown {
@@ -314,6 +358,25 @@ canvas {
   bottom: 100px !important;
 }
 
+body:not(.is-touch) #sprintBtn,
+body:not(.is-touch) #actionBtn {
+  background: transparent !important;
+  border: none !important;
+  pointer-events: none !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+/* Posições solicitadas para o PC */
+body:not(.is-touch) #sprintBtn {
+  right: 30px !important;
+  bottom: 30px !important;
+}
+
+body:not(.is-touch) #actionBtn {
+  right: 90px !important;
+  bottom: 30px !important;
+}
 
 #gameOver {
   position: absolute;
@@ -394,41 +457,34 @@ canvas {
 
 #roomSelect {
   width: 100%;
-  max-width: 320px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-}
-
-#roomSelect .or-divider {
-  color: var(--muted);
-  font-size: 0.85rem;
+  gap: 15px;
 }
 
 .join-row {
+  max-width: 290px;
   width: 100%;
   display: flex;
   gap: 10px;
   justify-content: center;
-  align-items: center;
+  align-items: baseline;
 }
 
 .join-row button {
-  width: auto;
-  max-width: none;
-  padding: 12px 16px;
+  width: 100%;
 }
 
 #roomCodeInput {
-  width: 140px;
+  width: 100%;
   text-transform: uppercase;
   letter-spacing: 4px;
 }
 
 #roomSelectStatus {
-  color: var(--danger);
+  color: var(--muted);
   font-size: 0.85rem;
   text-align: center;
   min-height: 1em;
@@ -443,6 +499,34 @@ canvas {
 
 #nameBlockedIcon {
   font-size: 1rem;
+}
+
+.pad-focus {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.public-room-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+#publicRoomsBackBtn {
+  align-self: flex-start;
+  width: auto;
+  max-width: none;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  padding: 6px 0;
 }
 
 @media screen and (orientation: portrait) {

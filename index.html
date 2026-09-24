@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="icon" href="img/icone.png" type="image/png">
+<link rel="icon" href="img/favicon.png" type="image/png">
 </head>
 <body>
 
@@ -20,14 +20,24 @@
   <section id="lobby">
 
     <div id="roomSelect">
-      <img src="img/logo.png" style="width: 100%; height: auto;"/>
-      <button id="createRoomBtn">Criar Sala</button>
-      <p class="or-divider">ou</p>
+      <img src="img/logo.png" style="width: 100%; height: auto; max-width: 416px;"/>
+      <span>Criar sala</span>
+      <div style="display: flex; gap: 15px;">
+        <button id="createPrivateRoomBtn">Particular</button>
+        <button id="createPublicRoomBtn">Pública</button>
+      </div>
+      <button id="publicRoomsBtn" style="width: 335px; background-color: #62208a;">Salas Disponíveis</button>
       <div class="join-row">
         <input type="text" id="roomCodeInput" maxlength="4" autocomplete="off" placeholder="CÓDIGO">
-        <button id="joinRoomBtn">Entrar</button>
+        <button id="joinRoomBtn" style="background-color: #d6a23d;">Entrar</button>
       </div>
       <p id="roomSelectStatus"></p>
+    </div>
+
+    <div id="publicRoomsScreen" class="hidden" style="height: 80vh;">
+      <button id="publicRoomsBackBtn" style="margin-bottom: 20px;">&lt; Voltar</button>
+      <p id="publicRoomsStatus" style="margin-bottom: 20px;"></p>
+      <div id="publicRoomsList"></div>
     </div>
 
     <div id="lobbyMain" class="hidden">
@@ -53,7 +63,7 @@
             <img src="img/j-5.png"/>
           </div>
         </div>
-        <div class="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px;">
           <input type="text" id="name" maxlength="15" autocomplete="off">
           <span id="nameBlockedIcon" class="hidden">🛇</span>
         </div>
@@ -98,10 +108,10 @@
     </div>
     <canvas id="canvas" width="1376" height="768"></canvas>
  
-    <div id="joystickZone">
+    <div id="joystickZone" class="hidden">
       <div id="joystickThumb"></div>
     </div>
-    <button id="sprintBtn"><img src="img/item-corrida.png" width="auto" height="30"/></button>
+    <button id="sprintBtn" class="hidden"><img src="img/item-corrida.png" width="auto" height="30"/></button>
     <button id="actionBtn" class="hidden"><img src="img/item-lampada.png" width="auto" height="30"/></button>
  
     <div id="gameOver" class="hidden">

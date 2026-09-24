@@ -3,12 +3,14 @@ document.addEventListener("deviceready", async () => {
   await StatusBar.hide();
 });
 
+const IS_TOUCH_DEVICE = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || !!window.Capacitor;
 const statusEl = document.getElementById("status");
 const playerCountEl = document.getElementById("playerCount");
 const startBtn = document.getElementById("startBtn");
 const roomSelectEl = document.getElementById("roomSelect");
 const lobbyMainEl = document.getElementById("lobbyMain");
-const createRoomBtn = document.getElementById("createRoomBtn");
+const createPrivateRoomBtn = document.getElementById("createPrivateRoomBtn");
+const createPublicRoomBtn = document.getElementById("createPublicRoomBtn");
 const roomCodeInput = document.getElementById("roomCodeInput");
 const joinRoomBtn = document.getElementById("joinRoomBtn");
 const roomSelectStatus = document.getElementById("roomSelectStatus");
@@ -34,6 +36,11 @@ const leaveBtn = document.getElementById("leaveBtn");
 const nameInput = document.getElementById("name");
 const characterOptions = document.querySelectorAll(".player-option");
 const nameBlockedIcon = document.getElementById("nameBlockedIcon");
+const publicRoomsBtn = document.getElementById("publicRoomsBtn");
+const publicRoomsScreen = document.getElementById("publicRoomsScreen");
+const publicRoomsBackBtn = document.getElementById("publicRoomsBackBtn");
+const publicRoomsList = document.getElementById("publicRoomsList");
+const publicRoomsStatus = document.getElementById("publicRoomsStatus");
 const DEBUG_COLLIDERS = false;
 const MIN_PLAYERS = 2;
 const prevInfected = new Map();
@@ -49,6 +56,83 @@ let latestState = [];
 let latestRoomLights = {};
 let selectedDurationMin = 2;
 let countdownSoundPlayed = false;
+let roomSelectFocusRow = 0;
+let roomSelectFocusCol = 0;
+let publicRoomFocusIndex = 0;
+let publicRoomButtons = [];
+let publicRoomsUnsubscribe = null;
+
+if (IS_TOUCH_DEVICE) {
+  document.body.classList.add("is-touch");
+}
+
+function initTouchControlsVisibility() {
+  if (IS_TOUCH_DEVICE) {
+    if (joystickZone) joystickZone.classList.remove("hidden");
+    if (sprintBtn) sprintBtn.classList.remove("hidden");
+  } else {
+    if (joystickZone) joystickZone.classList.add("hidden");
+    if (sprintBtn) sprintBtn.classList.remove("hidden");
+  }
+}
+
+initTouchControlsVisibility();
+
+publicRoomsBtn.addEventListener("click", () => {
+  roomSelectEl.classList.add("hidden");
+  publicRoomsScreen.classList.remove("hidden");
+  if (publicRoomsUnsubscribe) {
+    publicRoomsUnsubscribe();
+  }
+  publicRoomsStatus.textContent = "Buscando salas...";
+  publicRoomsList.innerHTML = "";
+  publicRoomsUnsubscribe = Network.subscribePublicRooms((rooms) => {
+    renderPublicRoomsList(rooms);
+  });
+});
+
+publicRoomsBackBtn.addEventListener("click", () => {
+  if (publicRoomsUnsubscribe) {
+    publicRoomsUnsubscribe();
+    publicRoomsUnsubscribe = null;
+  }
+
+  publicRoomsScreen.classList.add("hidden");
+  roomSelectEl.classList.remove("hidden");
+  roomSelectFocusRow = 0;
+  roomSelectFocusCol = 0;
+  updateRoomSelectFocusUI();
+});
+
+function renderPublicRoomsList(rooms) {
+  publicRoomsList.innerHTML = "";
+  publicRoomButtons = [];
+  publicRoomFocusIndex = 0;
+
+  if (rooms.length === 0) {
+    publicRoomsStatus.textContent = "Nenhuma sala pública disponível";
+    return;
+  }
+
+  publicRoomsStatus.textContent = "";
+  rooms.forEach((room) => {
+    const row = document.createElement("div");
+    row.className = "public-room-row";
+    row.innerHTML = `
+      <span>${room.code} — ${room.playerCount}/${Network.MAX_PLAYERS}</span>
+      <button class="public-room-join">Entrar</button>
+    `;
+    const joinBtn = row.querySelector(".public-room-join");
+    joinBtn.addEventListener("click", () => {
+      publicRoomsStatus.textContent = "Entrando...";
+      Network.joinRoomByCode(room.code);
+    });
+    publicRoomButtons.push(joinBtn);
+    publicRoomsList.appendChild(row);
+  });
+
+  updatePublicRoomFocusUI();
+}
 
 if (containsBlockedWord(savedName)) {
   savedName = "Eu";
@@ -74,10 +158,18 @@ nameInput.addEventListener("input", (e) => {
   nameBlockedIcon.classList.toggle("hidden", !containsBlockedWord(val));
 });
 
-createRoomBtn.addEventListener("click", () => {
-  createRoomBtn.disabled = true;
+createPrivateRoomBtn.addEventListener("click", () => {
+  createPrivateRoomBtn.disabled = true;
+  createPublicRoomBtn.disabled = true;
   roomSelectStatus.textContent = "Criando sala...";
-  Network.createRoom();
+  Network.createRoom(false);
+});
+
+createPublicRoomBtn.addEventListener("click", () => {
+  createPrivateRoomBtn.disabled = true;
+  createPublicRoomBtn.disabled = true;
+  roomSelectStatus.textContent = "Criando sala...";
+  Network.createRoom(true);
 });
 
 joinRoomBtn.addEventListener("click", () => {
@@ -633,14 +725,20 @@ function drawToast() {
 }
 
 Network.on("onRoomCreated", (code) => {
+  if (publicRoomsUnsubscribe) {
+    publicRoomsUnsubscribe();
+    publicRoomsUnsubscribe = null;
+  }
   roomSelectEl.classList.add("hidden");
+  publicRoomsScreen.classList.add("hidden");
   lobbyMainEl.classList.remove("hidden");
   roomCodeDisplay.textContent = `Código: ${code}`;
 });
 
 Network.on("onRoomNotFound", () => {
   roomSelectStatus.textContent = "Sala não encontrada";
-  createRoomBtn.disabled = false;
+  createPrivateRoomBtn.disabled = false;
+  createPublicRoomBtn.disabled = false;
   joinRoomBtn.disabled = false;
 });
 
@@ -668,8 +766,13 @@ Network.on("onRoomUpdate", (data) => {
 });
 
 Network.on("onStateSync", (players) => {
+  if (publicRoomsUnsubscribe) {
+    publicRoomsUnsubscribe();
+    publicRoomsUnsubscribe = null;
+  }
   joined = true;
   roomSelectEl.classList.add("hidden");
+  publicRoomsScreen.classList.add("hidden");
   lobbyMainEl.classList.remove("hidden");
   roomCodeDisplay.textContent = `Código: ${Network.roomCode}`;
   lobbyLeaveBtn.classList.remove("hidden");
@@ -700,15 +803,10 @@ Network.on("onRoomFull", () => {
 });
 
 Network.on("onHostLost", () => {
-  joined = false;
-  statusEl.textContent = "Dono da sala desconectado. Reconectando...";
-  lobbyLeaveBtn.classList.add("hidden");
-  startBtn.classList.add("hidden");
-  setTimeout(() => Network.rejoinRoom(), 500 + Math.random() * 1000);
-});
-
-Network.on("onPromotedToHost", () => {
-  statusEl.textContent = "O dono da sala saiu: você é o novo dono.";
+  gameOverText.textContent = "O dono da sala desconectou!";
+  restartBtn.classList.add("hidden");
+  leaveBtn.classList.remove("hidden");
+  gameOverEl.classList.remove("hidden");
 });
 
 Network.on("onGameStart", (musicTrack) => {
@@ -720,6 +818,10 @@ Network.on("onGameStart", (musicTrack) => {
 
 Network.on("onGameState", ({ players, timeLeft, roomLights, countdownText, items, pickedItems, itemsUsed, bananaSlips }) => {
   const me = players.find((p) => p.id === Network.myPeerId);
+
+  if (me) {
+    sprintBtn.classList.toggle("on-cooldown", !me.sprintReady);
+  }
 
   if (me && pickedItems && pickedItems.length) {
     pickedItems.forEach((pi) => {
@@ -808,9 +910,6 @@ Network.on("onGameState", ({ players, timeLeft, roomLights, countdownText, items
     timerEl.textContent = `${timeLeft}`;
   }
 
-  if (me) {
-    sprintBtn.classList.toggle("on-cooldown", !me.sprintReady);
-  }
 });
 
 Network.on("onGameOver", ({ reason, survivors }) => {
@@ -866,8 +965,26 @@ leaveBtn.addEventListener("click", () => {
 });
 
 const keys = new Set();
-window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
-window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener("keydown", (e) => {
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+    keys.add("shift");
+  } else if (e.code === "ControlLeft" || e.code === "ControlRight") {
+    if (!e.repeat) triggerAction();
+    keys.add("control");
+  } else {
+    keys.add(e.key.toLowerCase());
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+    keys.delete("shift");
+  } else if (e.code === "ControlLeft" || e.code === "ControlRight") {
+    keys.delete("control");
+  } else {
+    keys.delete(e.key.toLowerCase());
+  }
+});
 
 function keyboardVector() {
   let dx = 0, dy = 0;
@@ -883,6 +1000,7 @@ let wasPadRightPressed = false;
 let wasPadUpPressed = false;
 let wasPadDownPressed = false;
 let wasPadConfirmPressed = false;
+let wasPadBackPressed = false;
 
 function lobbyGamepadVector() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -899,7 +1017,20 @@ function lobbyGamepadVector() {
     up: (gp.buttons[12] && gp.buttons[12].pressed) || axisY < -deadzone,
     down: (gp.buttons[13] && gp.buttons[13].pressed) || axisY > deadzone,
     confirm: !!(gp.buttons[0] && gp.buttons[0].pressed),
+    back: !!(gp.buttons[1] && gp.buttons[1].pressed),
   };
+}
+
+function updateRoomSelectFocusUI() {
+  createPrivateRoomBtn.classList.toggle("pad-focus", roomSelectFocusRow === 0 && roomSelectFocusCol === 0);
+  createPublicRoomBtn.classList.toggle("pad-focus", roomSelectFocusRow === 0 && roomSelectFocusCol === 1);
+  publicRoomsBtn.classList.toggle("pad-focus", roomSelectFocusRow === 1);
+}
+
+function updatePublicRoomFocusUI() {
+  publicRoomButtons.forEach((btn, i) => {
+    btn.closest(".public-room-row").classList.toggle("pad-focus", i === publicRoomFocusIndex);
+  });
 }
 
 function cycleCharacter(dir) {
@@ -916,30 +1047,70 @@ function cycleTime(dir) {
 
 startWorkerIntervalLocal(120, () => {
   if (lobbyEl.classList.contains("hidden")) return;
-
   const gp = lobbyGamepadVector();
   if (!gp) return;
-
-  if (gp.right && !wasPadRightPressed) cycleCharacter(1);
-  if (gp.left && !wasPadLeftPressed) cycleCharacter(-1);
-  wasPadRightPressed = gp.right;
-  wasPadLeftPressed = gp.left;
-
-  if (!timeEl.classList.contains("hidden")) {
-    if (gp.down && !wasPadDownPressed) cycleTime(1);
-    if (gp.up && !wasPadUpPressed) cycleTime(-1);
-  }
-  wasPadDownPressed = gp.down;
-  wasPadUpPressed = gp.up;
-
-  if (gp.confirm && !wasPadConfirmPressed) {
-    if (!roomSelectEl.classList.contains("hidden")) {
-      if (!createRoomBtn.disabled) createRoomBtn.click();
-    } else if (!startBtn.classList.contains("hidden") && !startBtn.disabled) {
-      startBtn.click();
+  if (!roomSelectEl.classList.contains("hidden")) {
+    if (roomSelectFocusRow === 0) {
+      if (gp.right && !wasPadRightPressed && roomSelectFocusCol === 0) {
+      roomSelectFocusCol = 1;
+      updateRoomSelectFocusUI();
+    }
+    if (gp.left && !wasPadLeftPressed && roomSelectFocusCol === 1) {
+      roomSelectFocusCol = 0;
+      updateRoomSelectFocusUI();
     }
   }
+  if (gp.down && !wasPadDownPressed && roomSelectFocusRow === 0) {
+    roomSelectFocusRow = 1;
+    updateRoomSelectFocusUI();
+  }
+  if (gp.up && !wasPadUpPressed && roomSelectFocusRow === 1) {
+    roomSelectFocusRow = 0;
+    updateRoomSelectFocusUI();
+  }
+
+  if (gp.confirm && !wasPadConfirmPressed) {
+    if (roomSelectFocusRow === 0 && roomSelectFocusCol === 0 && !createPrivateRoomBtn.disabled) {
+      createPrivateRoomBtn.click();
+    } else if (roomSelectFocusRow === 0 && roomSelectFocusCol === 1 && !createPublicRoomBtn.disabled) {
+      createPublicRoomBtn.click();
+    } else if (roomSelectFocusRow === 1) {
+      publicRoomsBtn.click();
+    }
+  }
+} else if (!publicRoomsScreen.classList.contains("hidden")) {
+    if (publicRoomButtons.length > 0) {
+      if (gp.down && !wasPadDownPressed) {
+        publicRoomFocusIndex = (publicRoomFocusIndex + 1) % publicRoomButtons.length;
+        updatePublicRoomFocusUI();
+      }
+      if (gp.up && !wasPadUpPressed) {
+        publicRoomFocusIndex = (publicRoomFocusIndex - 1 + publicRoomButtons.length) % publicRoomButtons.length;
+        updatePublicRoomFocusUI();
+      }
+      if (gp.confirm && !wasPadConfirmPressed) publicRoomButtons[publicRoomFocusIndex].click();
+    }
+    if (gp.back && !wasPadBackPressed) publicRoomsBackBtn.click();
+  } else {
+    if (gp.right && !wasPadRightPressed) cycleCharacter(1);
+    if (gp.left && !wasPadLeftPressed) cycleCharacter(-1);
+
+    if (!timeEl.classList.contains("hidden")) {
+      if (gp.down && !wasPadDownPressed) cycleTime(1);
+      if (gp.up && !wasPadUpPressed) cycleTime(-1);
+    }
+
+    if (gp.confirm && !wasPadConfirmPressed) {
+      if (!startBtn.classList.contains("hidden") && !startBtn.disabled) startBtn.click();
+    }
+  }
+
+  wasPadRightPressed = gp.right;
+  wasPadLeftPressed = gp.left;
+  wasPadDownPressed = gp.down;
+  wasPadUpPressed = gp.up;
   wasPadConfirmPressed = gp.confirm;
+  wasPadBackPressed = gp.back;
 });
 
 function gamepadVector() {
@@ -1059,14 +1230,18 @@ function nearLightSwitch() {
 
 function updateActionButtonState(me) {
   if (!me || !actionBtn) return;
+
   const hasItem = !!me.heldItem;
   const isNearLight = nearLightSwitch();
-  if (hasItem || isNearLight) {
+  const hasAction = hasItem || isNearLight;
+
+  if (hasAction) {
     actionBtn.classList.remove("hidden");
   } else {
     actionBtn.classList.add("hidden");
     return;
   }
+
   if (!actionBtnImg) return;
   if (me.heldItem === "energetico") {
     actionBtnImg.src = "img/item-energetico.png";
@@ -1134,7 +1309,7 @@ startWorkerIntervalLocal(50, () => {
     triggerAction();
   }
   wasPadActionPressed = gp.action;
-  const isSprinting = sprintHeld || keys.has(" ") || gp.sprint;
+  const isSprinting = sprintHeld || keys.has("shift") || gp.sprint;
   let dx = kb.dx;
   let dy = kb.dy;
   if (Math.abs(gp.dx) > 0 || Math.abs(gp.dy) > 0) {
@@ -1200,3 +1375,4 @@ requestAnimationFrame(drawFrame);
 
 Network.init();
 startThemeMusic();
+updateRoomSelectFocusUI();

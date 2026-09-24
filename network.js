@@ -22,6 +22,7 @@ const Network = (() => {
   BANANA: { type: "banana", w: 32, h: 36, sprite: "item-banana.png" }
   };
 
+   let authPromise = null;
   let roomItems = [];
   let bananaTraps = [];
   let pendingItemUseEvents = [];
@@ -50,6 +51,38 @@ const Network = (() => {
   let hostConn = null;
   let myColor = null;
 
+  function subscribePublicRooms(onRoomsUpdate) {
+    let unsubscribe = null;
+
+    function setupListener() {
+      unsubscribe = db.collection("rooms")
+        .where("isPublic", "==", true)
+        .where("status", "==", "waiting")
+        .orderBy("playerCount", "desc")
+        .onSnapshot((snap) => {
+          const rooms = snap.docs
+            .map((doc) => ({ code: doc.id, ...doc.data() }))
+            .filter((data) => isHostAlive(data) && data.playerCount < MAX_PLAYERS);
+
+          onRoomsUpdate(rooms);
+        }, (err) => {
+          if (callbacks && callbacks.onError) {
+            callbacks.onError(err);
+          }
+        });
+    }
+
+    if (authPromise) {
+      authPromise.then(() => setupListener());
+    } else {
+      setupListener();
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }
+
   function spawnMapItems() {
     roomItems = [];
     const shuffledRooms = shuffleArray(Object.keys(ROOMS));
@@ -72,7 +105,7 @@ const Network = (() => {
         type: item.type,
         room,
         x: pos.x,
-        y: pos.y,
+        y: pos.y + 40,
         w: item.w,
         h: item.h
       });
@@ -244,8 +277,8 @@ const Network = (() => {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
     myPeerId = genId();
-
-    firebase.auth().signInAnonymously().catch((err) => callbacks.onError(err));
+    authPromise = firebase.auth().signInAnonymously().catch((err) => callbacks.onError(err));
+    return authPromise;
   }
 
   function watchRoom() {
@@ -271,7 +304,8 @@ const Network = (() => {
     );
   }
 
-  async function createRoom() {
+  async function createRoom(isPublic) {
+    if (authPromise) await authPromise;
     if (peer) { peer.destroy(); peer = null; }
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -291,6 +325,7 @@ const Network = (() => {
             status: "waiting",
             playerCount: 0,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            isPublic: !!isPublic, // NOVO
           });
         });
       } catch (e) {
@@ -307,10 +342,23 @@ const Network = (() => {
       return;
     }
 
-    callbacks.onError(new Error("Não foi possível gerar um código de sala"));
+    callbacks.onError(new Error("Erro ao gerar código de sala"));
+  }
+
+  async function listPublicRooms() {
+    if (authPromise) await authPromise;
+    const snap = await db.collection("rooms")
+      .where("isPublic", "==", true)
+      .where("status", "==", "waiting")
+      .orderBy("playerCount", "desc")
+      .get();
+    return snap.docs
+      .map((doc) => ({ code: doc.id, ...doc.data() }))
+      .filter((data) => isHostAlive(data) && data.playerCount < MAX_PLAYERS);
   }
 
   async function joinRoomByCode(code) {
+    if (authPromise) await authPromise;
     if (peer) { peer.destroy(); peer = null; }
 
     const ref = db.collection("rooms").doc(code);
@@ -880,58 +928,18 @@ function endGame(reason) {
           case "GAME_OVER":
             callbacks.onGameOver({ reason: msg.reason, survivors: msg.survivors });
             break;
-          case "PROMOTE":
-            becomeHostFromPromotion(msg.players);
-            break;
         }
       });
 
       hostConn.on("close", () => {
         if (isHost) return;
-        callbacks.onHostLost();
+        if (callbacks.onHostLost) {
+          callbacks.onHostLost();
+        }
       });
     });
 
     peer.on("error", (err) => callbacks.onError(err));
-  }
-
-  function becomeHostFromPromotion(list) {
-    isHost = true;
-    players.clear();
-
-    const usedColors = new Set(list.map((p) => p.color));
-    colorQueue = COLORS.filter((c) => !usedColors.has(c));
-
-    list.forEach((p) => {
-      players.set(p.id, { color: p.color, conn: null, lastSeen: Date.now() });
-    });
-    myColor = players.get(myPeerId)?.color ?? myColor;
-
-    peer.on("connection", (conn) => {
-      conn.on("open", () => {
-        conn.on("data", (msg) => handleHostMessage(conn, msg));
-      });
-      conn.on("close", () => removePlayer(conn.peer));
-    });
-
-    roomRef.update({
-      hostPeerId: myPeerId,
-      hostUid: firebase.auth().currentUser.uid,
-      hostHeartbeat: firebase.firestore.FieldValue.serverTimestamp(),
-      status: "waiting",
-      playerCount: players.size,
-    });
-
-    startWorkerInterval(HOST_HEARTBEAT_INTERVAL, () => {
-      roomRef.update({
-        hostHeartbeat: firebase.firestore.FieldValue.serverTimestamp(),
-        playerCount: players.size,
-      });
-    });
-    startWorkerInterval(2000, checkStaleClients);
-
-    callbacks.onPromotedToHost();
-    broadcastState();
   }
 
   function sendInput(dx, dy, sprint) {
@@ -967,30 +975,14 @@ function endGame(reason) {
   }
 
   function leaveRoom() {
-    if (!isHost) {
-      if (hostConn) hostConn.send({ type: "LEAVE", peerId: myPeerId });
-      if (peer) peer.destroy();
-      location.reload();
-      return;
+    if (isHost) {
+      if (roomRef) roomRef.delete().catch(() => {});
+    } else if (hostConn && hostConn.open) {
+      hostConn.send({ type: "LEAVE", peerId: myPeerId });
     }
 
-    const others = [...players.entries()].filter(([id]) => id !== myPeerId);
-
-    if (others.length === 0) {
-      roomRef.delete().catch(() => {});
-      if (peer) peer.destroy();
-      location.reload();
-      return;
-    }
-
-    const [successorId, successor] = others[0];
-    const payload = others.map(([id, p]) => ({ id, color: p.color }));
-    if (successor.conn) successor.conn.send({ type: "PROMOTE", players: payload });
-
-    setTimeout(() => {
-      if (peer) peer.destroy();
-      location.reload();
-    }, 300);
+    if (peer) peer.destroy();
+    location.reload();
   }
 
   function changeRoom(toRoom, spawnX, spawnY) {
@@ -1011,6 +1003,8 @@ function endGame(reason) {
     init,
     createRoom,
     joinRoomByCode,
+    listPublicRooms,
+    subscribePublicRooms,
     rejoinRoom,
     changeRoom,
     setPlayerName,
