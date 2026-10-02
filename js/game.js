@@ -19,6 +19,7 @@ const lobbyEl = document.getElementById("lobby");
 const gameEl = document.getElementById("game");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
 const timerEl = document.getElementById("timer");
 const timeHud = document.getElementById("hud");
 const timeEl = document.getElementById("time");
@@ -308,7 +309,7 @@ function checkRoomExitsLocal(me) {
 }
 
 const imageCache = new Map();
-function loadImageWithFallback(src, w, h, label) {
+function loadImage(src, w, h) {
   if (imageCache.has(src)) return imageCache.get(src);
   const img = new Image();
   const state = { img, ready: false };
@@ -316,52 +317,42 @@ function loadImageWithFallback(src, w, h, label) {
   img.src = src;
   state.w = w;
   state.h = h;
-  state.label = label;
   imageCache.set(src, state);
   return state;
 }
 
-function drawWithFallback(state, x, y, flip) {
-  if (state.ready) {
-    ctx.save();
-    if (flip) {
-      ctx.translate(x + state.w, y);
-      ctx.scale(-1, 1);
-      ctx.drawImage(state.img, 0, 0, state.w, state.h);
-    } else {
-      ctx.drawImage(state.img, x, y, state.w, state.h);
-    }
-    ctx.restore();
-    return;
-  }
+function draw(state, x, y, flip) {
+  if (!state.ready) return;
   ctx.save();
-  ctx.strokeStyle = "#888";
-  ctx.setLineDash([6, 4]);
-  ctx.strokeRect(x, y, state.w, state.h);
-  ctx.fillStyle = "#444";
-  ctx.fillRect(x, y, state.w, state.h);
+  if (flip) {
+    ctx.translate(x + state.w, y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(state.img, 0, 0, state.w, state.h);
+  } else {
+    ctx.drawImage(state.img, x, y, state.w, state.h);
+  }
   ctx.restore();
 }
 
 function drawObject(o) {
-  const sprite = loadImageWithFallback(o.src, o.w, o.h, o.src);
-  drawWithFallback(sprite, o.x, o.y, o.flip);
+  const sprite = loadImage(o.src, o.w, o.h, o.src);
+  draw(sprite, o.x, o.y, o.flip);
 }
 
 function preloadAssets() {
   Object.values(ROOMS).forEach((room) => {
-    loadImageWithFallback(room.bg, ROOM_W, ROOM_H, room.bg);
-    (room.staticFront || []).forEach((o) => loadImageWithFallback(o.src, o.w, o.h, o.src));
-    (room.ySort || []).forEach((o) => loadImageWithFallback(o.src, o.w, o.h, o.src));
+    loadImage(room.bg, ROOM_W, ROOM_H, room.bg);
+    (room.staticFront || []).forEach((o) => loadImage(o.src, o.w, o.h, o.src));
+    (room.ySort || []).forEach((o) => loadImage(o.src, o.w, o.h, o.src));
     if (room.lightSwitch) {
-      loadImageWithFallback(room.lightSwitch.onSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.onSprite);
-      loadImageWithFallback(room.lightSwitch.offSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.offSprite);
+      loadImage(room.lightSwitch.onSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.onSprite);
+      loadImage(room.lightSwitch.offSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.offSprite);
     }
   });
   Object.values(PLAYER_SPRITES).forEach((set) => {
-    loadImageWithFallback(set.base.src, set.base.w, set.base.h, set.base.src);
-    loadImageWithFallback(set.infectado.src, set.infectado.w, set.infectado.h, set.infectado.src);
-    loadImageWithFallback(set.zumbi.src, set.zumbi.w, set.zumbi.h, set.zumbi.src);
+    loadImage(set.base.src, set.base.w, set.base.h, set.base.src);
+    loadImage(set.infectado.src, set.infectado.w, set.infectado.h, set.infectado.src);
+    loadImage(set.zumbi.src, set.zumbi.w, set.zumbi.h, set.zumbi.src);
   });
 }
 preloadAssets();
@@ -466,7 +457,7 @@ function drawPlayerSprite(p, isHidden = false) {
   const spriteSet = PLAYER_SPRITES[p.color];
   if (!spriteSet) return;
   const spec = p.transforming ? spriteSet.infectado : p.infected ? spriteSet.zumbi : spriteSet.base;
-  const sheet = loadImageWithFallback(spec.src, spec.w, spec.h, spec.src);
+  const sheet = loadImage(spec.src, spec.w, spec.h, spec.src);
   const frameW = spec.w / spec.frames;
   const frameH = spec.h;
 
@@ -507,9 +498,6 @@ function drawPlayerSprite(p, isHidden = false) {
       ctx.drawImage(sheet.img, frameIndex * frameW, 0, frameW, frameH, drawX, drawY, frameW, frameH);
     }
     ctx.restore();
-  } else {
-    ctx.fillStyle = PLAYER_COLOR_HEX[p.color] || "#888";
-    ctx.fillRect(p.x, p.y, Network.PLAYER_W, Network.PLAYER_H);
   }
 
   if (!isHidden) {
@@ -580,13 +568,13 @@ function drawRoomScene(roomId, roomPlayers) {
   const room = ROOMS[roomId];
   if (!room) return;
 
-  drawWithFallback(loadImageWithFallback(room.bg, ROOM_W, ROOM_H, room.bg), 0, 0);
+  draw(loadImage(room.bg, ROOM_W, ROOM_H, room.bg), 0, 0);
 
   drawMapItems(roomId);
 
   if (room.lightSwitch) {
-    drawWithFallback(
-      loadImageWithFallback(room.lightSwitch.onSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.onSprite),
+    draw(
+      loadImage(room.lightSwitch.onSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.onSprite),
       room.lightSwitch.x,
       room.lightSwitch.y
     );
@@ -1373,8 +1361,8 @@ function drawFrame() {
   if (lightsOff) {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawWithFallback(
-      loadImageWithFallback(room.lightSwitch.offSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.offSprite),
+    draw(
+      loadImage(room.lightSwitch.offSprite, room.lightSwitch.w, room.lightSwitch.h, room.lightSwitch.offSprite),
       room.lightSwitch.x,
       room.lightSwitch.y
     );
