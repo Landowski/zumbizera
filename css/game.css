@@ -32,7 +32,6 @@ body {
   color: var(--text);
   font-family: "Press Start 2P", "Courier New", monospace;
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 
 img {
@@ -40,6 +39,7 @@ img {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  image-rendering: pixelated;
 }
 
 p, ul {
@@ -50,7 +50,7 @@ p, ul {
 input {
   width: 220px;
   height: 30px;
-  background-color: var(--panel);
+  background-color: transparent;
   border: none;
   outline: none;
   border-bottom: 2px solid var(--muted);
@@ -275,6 +275,7 @@ canvas {
   width: 100vw;
   height: 100vh;
   object-fit: contain;
+  image-rendering: pixelated;
 }
 
 #hud {
